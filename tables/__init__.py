@@ -8,23 +8,31 @@ from sqlalchemy import create_engine
 
 from tables.base import Base
 from utils import import_all
+from logger import logger
+from settings import load_config
 
+settings = load_config()
 
 import_all(__file__, globals(), __package__)
 
+
 @lru_cache(maxsize=1)
-def get_engine(url: str = "sqlite:///./db.sqlite", echo=False, **kwargs):
+def get_engine(echo=False, **kwargs):
+    logger.info("Creating Database Enigne")
     return create_engine(
-        url,
+        settings["DB_URL"],
         echo=echo,
         **kwargs,
     )
 
 
 def create_tables(engine: Engine = get_engine()):
+    logger.info("Creating Database Tables")
     Base.metadata.create_all(engine)
 
+
 def drop_tables(engine: Engine = get_engine()):
+    logger.info("Dropping Database Tables")
     Base.metadata.drop_all(engine)
 
 
@@ -35,13 +43,14 @@ def add_data(data_dir: Path, engine: Engine = get_engine()):
             if file.stem in tables:
                 table = tables[file.stem]
 
-                print(f"Adding Data To: {table.name}")
+                logger.info(f"\033[48;5;12mAdding Data To:\033[49m {table.name}")
                 data: list[dict] = json.loads(file.read_bytes())
                 query = table.insert().values(data)
 
                 with Session(engine) as session:
                     session.execute(query)
                     session.commit()
-            print(f"{file.name} \033[48;5;22mOk\033[49m")
+                logger.info(f"\033[48;5;22mData Loaded\033[49m From: {file.name}")
         except Exception as e:
+            logger.error(f"\033[48;5;9mCouldn't Load file:\033[49m {file}", exc_info=True)
             raise RuntimeError(f"\033[48;5;9mCouldn't Load file: {file}\033[49m") from e
