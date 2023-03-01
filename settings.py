@@ -1,4 +1,6 @@
-from configparser import ConfigParser, SectionProxy
+from typing import Any, Mapping, Self
+from configparser import ConfigParser
+from dataclasses import dataclass
 from getpass import getuser
 from pathlib import Path
 from sys import platform
@@ -6,12 +8,6 @@ import json
 import os
 
 from logger import logger
-
-config = ConfigParser()
-config["DEFAULT"] = {
-    "DB_URL": "sqlite:///./db.sqlite",
-    "JSON_DATA_DIR": str((Path(__file__) / "../JSON_DATA/").resolve()),
-}
 
 
 PROJECT_NAME = os.environ.get("PROJECT_NAME", Path(__file__).parent.stem)
@@ -34,6 +30,30 @@ LOCAL_CONFIG_DIR = Path(__file__).parent
 CONFIG_DIR = LOCAL_CONFIG_DIR if USE_LOCAL_CONFIG_DIR else USER_CONFIG_DIR
 
 
+@dataclass
+class Config:
+    DB_URL: str
+    JSON_DATA_DIR: Path
+
+    def to_string_dict(self) -> dict[str, str]:
+        return {k: str(v) for k, v in self.__dict__.items()}
+
+    def to_dict(self):
+        return dict(self.__dict__.items())
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> Self:
+        return cls(**{k.upper(): cls.__annotations__[k.upper()](v) for k, v in data.items()})
+
+
+config = ConfigParser()
+config["DEFAULT"] = Config(
+    # DB_URL="sqlite+aiosqlite:///:memory:",
+    DB_URL="sqlite+aiosqlite:///./db.sqlite",
+    JSON_DATA_DIR=(Path(__file__) / "../JSON_DATA/").resolve(),
+).to_string_dict()
+
+
 def save_config(config: ConfigParser, /, config_filepath: Path):
     try:
         config_filepath.parent.mkdir(exist_ok=True)
@@ -50,7 +70,7 @@ def create_config(config_filepath: Path, profile: str):
     return save_config(config, config_filepath=config_filepath)
 
 
-def _load_config(config_filepath: Path, profile: str) -> SectionProxy:
+def _load_config(config_filepath: Path, profile: str) -> Config:
     if not config_filepath.name.endswith(".ini"):
         logger.info("\033[48;5;9mWrong File Type\033[49m ... Creating A New Config File With `.ini` Suffix")
         return _load_config(config_filepath.with_suffix(".ini"), profile)
@@ -58,15 +78,15 @@ def _load_config(config_filepath: Path, profile: str) -> SectionProxy:
     logger.info("\033[48;5;12mLoading Config\033[49m")
     config.read(config_filepath)
 
-    return config[profile]
+    return Config.from_dict(config[profile])
 
 
 def load_config(
     config_file: str = "config.ini",
     /,
     profile: str = getuser(),
-    cache: dict[float, SectionProxy] = {},  # This is intentional for creating a cache
-) -> SectionProxy:  # sourcery skip: default-mutable-arg
+    cache: dict[float, Config] = {},  # This is intentional for creating a cache
+) -> Config:  # sourcery skip: default-mutable-arg
     config_filepath = CONFIG_DIR / config_file
 
     if not config_filepath.exists():

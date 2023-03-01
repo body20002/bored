@@ -5,7 +5,10 @@ name = "pypi"
 
 [packages]
 starlite = "*"
-sqlalchemy = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+aiosqlite = "*"
+sqlalchemy = {extras = ["asyncio"], version = "*"}
+aiopath = "*"
 
 [dev-packages]
 

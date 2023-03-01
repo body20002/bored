@@ -12,7 +12,7 @@ class Accessibility(StrEnum):
 class Participants(StrEnum):
     ALONE = auto()
     PARTY = auto()
-    WITH_A_FRINED = auto()
+    WITH_A_FRIEND = auto()
     WITH_THE_GANG = auto()
 
 
